@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "dicom-mod"
+version = "0.1.0"
+description = "A script to modify DICOM files."
+authors = ["Pavel Dusek <pavel.dusek@gmail.com>"]
+license = "GNU GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+pydicom = "^3.0.1"
+pillow = "^11.1.0"
+numpy = "^2.2.2"
+icecream = "^2.1.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
