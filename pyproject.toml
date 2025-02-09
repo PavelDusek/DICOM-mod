@@ -12,6 +12,7 @@ pydicom = "^3.0.1"
 pillow = "^11.1.0"
 numpy = "^2.2.2"
 icecream = "^2.1.4"
+rich = "^13.9.4"
 
 
 [build-system]
