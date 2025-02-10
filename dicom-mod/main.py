@@ -104,7 +104,7 @@ def main() -> bool:
             jpg_name = f"{path.name}.jpg"
             image.save(out_path)
         if out_dir:
-            out_path = out_dir / path
+            out_path = out_dir / path.name
             dataset.PixelData = image.tobytes()
             print(f"Saving dicom file to [red]{out_path}[/red].")
             dataset.save_as(out_path, enforce_file_format = True)
