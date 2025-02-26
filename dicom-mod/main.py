@@ -2,6 +2,7 @@
 import pydicom
 import numpy as np
 import argparse
+import os
 
 from pathlib import Path
 from PIL import Image
@@ -18,12 +19,20 @@ parser.add_argument("-o", "--output", type=str, help="output directory")
 parser.add_argument("-s", "--show", action="store_true", default=False, help="show dicom images")
 parser.add_argument("-j", "--jpg", action="store_true", default=False, help="Convert dicom to jpg.")
 parser.add_argument("-n", "--info", action="store_true", default=True, help="Print information about the image.")
+parser.add_argument("-v", "--verbose", action="store_true", default=False, help="Verbose output.")
+
+#TODO institution
+# (0008,0080) Institution Name                    LO: 'Univerzita Karlova v Praze'
+#
+#TODO check for pixel data
+# (7FE0,0010) Pixel Data                          OW: Array of 3686400 elements
+#
 
 ############
 # Transfer #
 ############
 parser.add_argument("-t", "--transfer", action="store_true", default=False, help="Transfer part of the dicom image to another x,y value specified by --source and --destination.")
-parser.add_argument("-u", "--source", type=str, default="780,0,150,65", help="Part of the image to be transfered, argument for --transfer. Format: x,y,width,height. x,y is the top left corner of the rectangle with width and height.")
+parser.add_argument("-u", "--source", type=str, default="950,0,150,65", help="Part of the image to be transfered, argument for --transfer. Format: x,y,width,height. x,y is the top left corner of the rectangle with width and height.")
 parser.add_argument("-d", "--destination", type=str, default="10,0", help="color as (r,g,b) for --fill.")
 
 parser.add_argument("-t2", "--transfer2", action="store_true", default=False, help="Transfer part of the dicom image to another x,y value specified by --source and --destination.")
@@ -82,7 +91,19 @@ def main() -> bool:
     for path in in_dir.iterdir():
         print(f"Parsing file [blue]{path}[/blue].")
         dataset = pydicom.dcmread(in_dir / path)
-        image = dataset.pixel_array
+
+        if args.verbose:
+            ic(dataset)
+
+        #if not pixel data:
+        #   continue
+        try:
+            image = dataset.pixel_array
+        except AttributeError as e:
+            print(dataset)
+            print(e)
+            #breakpoint()
+            continue
 
         if args.info:
             print(f"Shape of image [green]{image.shape}[/green].")
@@ -104,6 +125,8 @@ def main() -> bool:
             jpg_name = f"{path.name}.jpg"
             image.save(out_path)
         if out_dir:
+            if not out_dir.is_dir():
+                os.makedirs(out_dir)
             out_path = out_dir / path.name
             dataset.PixelData = image.tobytes()
             print(f"Saving dicom file to [red]{out_path}[/red].")
