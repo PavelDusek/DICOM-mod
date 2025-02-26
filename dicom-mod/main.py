@@ -120,10 +120,18 @@ def main() -> bool:
             command = show_image(image)
             if command.strip().lower() in ["q", "quit", "e", "exit"]:
                 return False
-        if args.jpg:
-            print(f"Saving image to [green]{jpg_name}[/green].")
+        if args.jpg and out_dir:
             jpg_name = f"{path.name}.jpg"
-            image.save(out_path)
+            if not out_dir.is_dir():
+                os.makedirs(out_dir)
+            out_path = out_dir / Path(jpg_name)
+            print(f"Saving image to [green]{out_path}[/green].")
+            try:
+                pil_image = Image.fromarray(image)
+                pil_image.save(out_path)
+            except Exception as e:
+                print(e)
+                breakpoint()
         if out_dir:
             if not out_dir.is_dir():
                 os.makedirs(out_dir)
