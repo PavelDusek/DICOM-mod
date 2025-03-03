@@ -19,15 +19,11 @@ parser.add_argument("-i", "--input", type=str, help="input directory")
 parser.add_argument("-o", "--output", type=str, help="output directory")
 parser.add_argument("-s", "--show", action="store_true", default=False, help="show dicom images")
 parser.add_argument("-j", "--jpg", action="store_true", default=False, help="Convert dicom to jpg.")
-parser.add_argument("-n", "--info", action="store_true", default=True, help="Print information about the image.")
+parser.add_argument("-n", "--info", action="store_true", default=False, help="Print information about the image.")
 parser.add_argument("-v", "--verbose", action="store_true", default=False, help="Verbose output.")
 
-#TODO institution
-# (0008,0080) Institution Name                    LO: 'Univerzita Karlova v Praze'
-#
-#TODO check for pixel data
-# (7FE0,0010) Pixel Data                          OW: Array of 3686400 elements
-#
+#TODO institution(0008,0080) Institution Name
+#TODO check for pixel data (7FE0,0010) Pixel Data
 
 ############
 # Transfer #
@@ -85,7 +81,11 @@ def debug_verbose(debug:bool = False, verbose: bool = False):
 @debug_verbose(args.debug, args.verbose)
 def show_image(array: np.array, zoom = False) -> str:
     """ Shows the actual image in an numpy array on the display."""
-    image = Image.fromarray(array)
+    if len(array.shape) == 4:
+        #video, show only first frame
+        image = Image.fromarray(array[0, :, :, :])
+    else:
+        image = Image.fromarray(array)
     img = image.convert('RGB')
     img.show()
     print("[blue]Enter[/blue] to continue, [red]Q[/red] to end.")
@@ -106,12 +106,18 @@ def transfer_image(array: np.array, destination: str, source: str) -> np.array:
     source_x, source_y, width, height = source.split(",")
     dest_x, dest_y = destination.split(",")
     source_x, source_y, width, height, dest_x, dest_y = int(source_x), int(source_y), int(width), int(height), int(dest_x), int(dest_y)
-    array[ dest_y : dest_y+height, dest_x : dest_x+width ] = array[ source_y : source_y+height, source_x : source_x+width ]
+
+    if len(array.shape) == 4:
+        #video data
+        for frame in range(array.shape[0]):
+            array[frame, dest_y : dest_y+height, dest_x : dest_x+width ] = array[frame, source_y : source_y+height, source_x : source_x+width ]
+    else:
+        #image data
+        array[ dest_y : dest_y+height, dest_x : dest_x+width ] = array[ source_y : source_y+height, source_x : source_x+width ]
     return array
 
 @debug_verbose(args.debug, args.verbose)
 def get_image(dataset: pydicom.dataset.FileDataset) -> np.array:
-    ic(dataset.pixel_array)
     return dataset.pixel_array
 
 @debug_verbose(args.debug, args.verbose)
@@ -135,6 +141,10 @@ def main() -> bool:
         print(f"Parsing file [blue]{path}[/blue].")
         dataset = pydicom.dcmread(in_dir / path)
         image = get_image(dataset)
+
+        if image is None:
+            print(f"[red]No image data for[/red] [blue]{path}[/blue]. Skipping.")
+            continue
 
         if args.info:
             print(f"Shape of image [green]{image.shape}[/green].")
@@ -164,7 +174,11 @@ def main() -> bool:
             if not out_dir.is_dir():
                 os.makedirs(out_dir)
             out_path = out_dir / path.name
-            dataset.PixelData = image.tobytes()
+            if len(image.shape) == 4:
+                #video image
+                dataset.PixelData = pydicom.encaps.encapsulate([image[frame, :, :, :].tobytes() for frame in range(image.shape[0])])
+            else:
+                dataset.PixelData = image.tobytes()
             print(f"Saving dicom file to [red]{out_path}[/red].")
             dataset.save_as(out_path, enforce_file_format = True)
     return True
