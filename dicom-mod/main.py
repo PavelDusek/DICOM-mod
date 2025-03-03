@@ -8,6 +8,7 @@ from pathlib import Path
 from PIL import Image
 from icecream import ic
 from rich import print
+from functools import wraps
 
 parser = argparse.ArgumentParser(
     prog="dicom-mod",
@@ -33,6 +34,7 @@ parser.add_argument("-v", "--verbose", action="store_true", default=False, help=
 ############
 parser.add_argument("-t", "--transfer", action="store_true", default=False, help="Transfer part of the dicom image to another x,y value specified by --source and --destination.")
 parser.add_argument("-u", "--source", type=str, default="950,0,150,65", help="Part of the image to be transfered, argument for --transfer. Format: x,y,width,height. x,y is the top left corner of the rectangle with width and height.")
+parser.add_argument("-e", "--debug", action="store_true", default=False, help="If exception raised, run Python debugger.")
 parser.add_argument("-d", "--destination", type=str, default="10,0", help="color as (r,g,b) for --fill.")
 
 parser.add_argument("-t2", "--transfer2", action="store_true", default=False, help="Transfer part of the dicom image to another x,y value specified by --source and --destination.")
@@ -52,6 +54,35 @@ parser.add_argument("-r2", "--rect2", type=str, default="150,30,300,35", help="r
 
 args = parser.parse_args()
 
+#############
+# Functions #
+#############
+def debug_verbose(debug:bool = False, verbose: bool = False):
+    """Function decorator to show debug info in case of failure of a function and verbose info in case of verbose arguments."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = None
+            if debug:
+                print(f"Running {func}.")
+            if verbose:
+                ic(func)
+                ic(args)
+                ic(kwargs)
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except AttributeError as e:
+                print(e)
+                if debug:
+                    breakpoint()
+            return result
+        if debug:
+            print(f"End of {func}.")
+        return wrapper
+    return decorator
+
+@debug_verbose(args.debug, args.verbose)
 def show_image(array: np.array, zoom = False) -> str:
     """ Shows the actual image in an numpy array on the display."""
     image = Image.fromarray(array)
@@ -60,6 +91,7 @@ def show_image(array: np.array, zoom = False) -> str:
     print("[blue]Enter[/blue] to continue, [red]Q[/red] to end.")
     return input("Proceed?")
 
+@debug_verbose(args.debug, args.verbose)
 def fill_image(array: np.array, rectangle: str, color: str) -> np.array:
     """ Fills part of the image with a rectangle with specified color."""
     x, y, width, height = rectangle.split(",")
@@ -68,6 +100,7 @@ def fill_image(array: np.array, rectangle: str, color: str) -> np.array:
     array[ y:y+height, x:x+width ] = [r, g, b]
     return array
 
+@debug_verbose(args.debug, args.verbose)
 def transfer_image(array: np.array, destination: str, source: str) -> np.array:
     """ Transfers part of the image to a different part of the image as a copy."""
     source_x, source_y, width, height = source.split(",")
@@ -75,6 +108,16 @@ def transfer_image(array: np.array, destination: str, source: str) -> np.array:
     source_x, source_y, width, height, dest_x, dest_y = int(source_x), int(source_y), int(width), int(height), int(dest_x), int(dest_y)
     array[ dest_y : dest_y+height, dest_x : dest_x+width ] = array[ source_y : source_y+height, source_x : source_x+width ]
     return array
+
+@debug_verbose(args.debug, args.verbose)
+def get_image(dataset: pydicom.dataset.FileDataset) -> np.array:
+    ic(dataset.pixel_array)
+    return dataset.pixel_array
+
+@debug_verbose(args.debug, args.verbose)
+def save_jpg(image: np.array) -> None:
+    pil_image = Image.fromarray(image)
+    pil_image.save(out_path)
 
 def main() -> bool:
     in_dir, out_dir = None, None
@@ -91,19 +134,7 @@ def main() -> bool:
     for path in in_dir.iterdir():
         print(f"Parsing file [blue]{path}[/blue].")
         dataset = pydicom.dcmread(in_dir / path)
-
-        if args.verbose:
-            ic(dataset)
-
-        #if not pixel data:
-        #   continue
-        try:
-            image = dataset.pixel_array
-        except AttributeError as e:
-            print(dataset)
-            print(e)
-            #breakpoint()
-            continue
+        image = get_image(dataset)
 
         if args.info:
             print(f"Shape of image [green]{image.shape}[/green].")
@@ -115,23 +146,20 @@ def main() -> bool:
             image = fill_image(array = image, rectangle = args.rect, color = args.color)
         if args.fill2:
             image = fill_image(array = image, rectangle = args.rect2, color = args.color2)
+
         if args.show:
             print(f"Showing [green]{path.name}[/green].")
             command = show_image(image)
             if command.strip().lower() in ["q", "quit", "e", "exit"]:
                 return False
+
         if args.jpg and out_dir:
             jpg_name = f"{path.name}.jpg"
             if not out_dir.is_dir():
                 os.makedirs(out_dir)
             out_path = out_dir / Path(jpg_name)
             print(f"Saving image to [green]{out_path}[/green].")
-            try:
-                pil_image = Image.fromarray(image)
-                pil_image.save(out_path)
-            except Exception as e:
-                print(e)
-                breakpoint()
+
         if out_dir:
             if not out_dir.is_dir():
                 os.makedirs(out_dir)
