@@ -22,6 +22,7 @@ parser.add_argument("-o", "--output", type=str, help="output directory")
 parser.add_argument(
     "-s", "--show", action="store_true", default=False, help="show dicom images"
 )
+parser.add_argument("-l", "--institution", type=str, help="institution (location) name")
 parser.add_argument(
     "-j", "--jpg", action="store_true", default=False, help="Convert dicom to jpg."
 )
@@ -36,7 +37,6 @@ parser.add_argument(
     "-v", "--verbose", action="store_true", default=False, help="Verbose output."
 )
 
-# TODO institution(0008,0080) Institution Name
 # TODO check for pixel data (7FE0,0010) Pixel Data
 
 ############
@@ -285,6 +285,9 @@ def main() -> bool:
             command = show_image(image)
             if command.strip().lower() in ["q", "quit", "e", "exit"]:
                 return False
+
+        if args.institution:
+            dataset.InstitutionName = args.institution
 
         if args.jpg and out_dir:
             jpg_name = f"{path.name}.jpg"
