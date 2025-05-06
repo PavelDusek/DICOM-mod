@@ -10,7 +10,7 @@ import numpy as np
 import pydicom
 from icecream import ic
 from PIL import Image
-from rich import print
+import rich
 
 parser = argparse.ArgumentParser(
     prog="dicom-mod",
@@ -156,7 +156,7 @@ def debug_verbose(debug: bool = False, verbose: bool = False):
         def wrapper(*args, **kwargs):
             result = None
             if debug:
-                print(f"Running {func}.")
+                rich.print(f"Running {func}.")
             if verbose:
                 ic(func)
                 ic(args)
@@ -165,13 +165,13 @@ def debug_verbose(debug: bool = False, verbose: bool = False):
                 result = func(*args, **kwargs)
                 return result
             except AttributeError as e:
-                print(e)
+                rich.print(e)
                 if debug:
                     breakpoint()
             return result
 
         if debug:
-            print(f"End of {func}.")
+            rich.print(f"End of {func}.")
         return wrapper
 
     return decorator
@@ -187,7 +187,7 @@ def show_image(array: np.array) -> str:
         image = Image.fromarray(array)
     img = image.convert("RGB")
     img.show()
-    print("[blue]Enter[/blue] to continue, [red]Q[/red] to end.")
+    rich.print("[blue]Enter[/blue] to continue, [red]Q[/red] to end.")
     return input("Proceed?")
 
 
@@ -249,24 +249,24 @@ def main() -> bool:
     if args.input:
         in_dir = Path(args.input)
     else:
-        print("[red]No input directory specified.[/red]")
+        rich.print("[red]No input directory specified.[/red]")
         return False
     if args.output:
         out_dir = Path(args.output)
     else:
-        print("[red]No output directory specified.[/red]")
+        rich.print("[red]No output directory specified.[/red]")
 
     for path in in_dir.iterdir():
-        print(f"Parsing file [blue]{path}[/blue].")
+        rich.print(f"Parsing file [blue]{path}[/blue].")
         dataset = pydicom.dcmread(in_dir / path)
         image = get_image(dataset)
 
         if image is None:
-            print(f"[red]No image data for[/red] [blue]{path}[/blue]. Skipping.")
+            rich.print(f"[red]No image data for[/red] [blue]{path}[/blue]. Skipping.")
             continue
 
         if args.info:
-            print(f"Shape of image [green]{image.shape}[/green].")
+            rich.print(f"Shape of image [green]{image.shape}[/green].")
         if args.transfer:
             image = transfer_image(
                 array=image, destination=args.destination, source=args.source
@@ -281,7 +281,7 @@ def main() -> bool:
             image = fill_image(array=image, rectangle=args.rect2, color=args.color2)
 
         if args.show:
-            print(f"Showing [green]{path.name}[/green].")
+            rich.print(f"Showing [green]{path.name}[/green].")
             command = show_image(image)
             if command.strip().lower() in ["q", "quit", "e", "exit"]:
                 return False
@@ -294,7 +294,7 @@ def main() -> bool:
             if not out_dir.is_dir():
                 os.makedirs(out_dir)
             out_path = out_dir / Path(jpg_name)
-            print(f"Saving image to [green]{out_path}[/green].")
+            rich.print(f"Saving image to [green]{out_path}[/green].")
 
         if out_dir:
             if not out_dir.is_dir():
@@ -307,7 +307,7 @@ def main() -> bool:
                 )
             else:
                 dataset.PixelData = image.tobytes()
-            print(f"Saving dicom file to [red]{out_path}[/red].")
+            rich.print(f"Saving dicom file to [red]{out_path}[/red].")
             dataset.save_as(out_path, enforce_file_format=True)
     return True
 
