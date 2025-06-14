@@ -190,6 +190,16 @@ def show_image(array: np.array) -> str:
     rich.print("[blue]Enter[/blue] to continue, [red]Q[/red] to end.")
     return input("Proceed?")
 
+@debug_verbose(args.debug, args.verbose)
+def save_jpg(array: np.array, path: Path) -> None:
+    """Saves the actual image to a jpg file."""
+    if len(array.shape) == 4:
+        # video, show only first frame
+        image = Image.fromarray(array[0, :, :, :])
+    else:
+        image = Image.fromarray(array)
+    img = image.convert("RGB")
+    img.save(path)
 
 @debug_verbose(args.debug, args.verbose)
 def fill_image(array: np.array, rectangle: str, color: str) -> np.array:
@@ -295,6 +305,7 @@ def main() -> bool:
                 os.makedirs(out_dir)
             out_path = out_dir / Path(jpg_name)
             rich.print(f"Saving image to [green]{out_path}[/green].")
+            save_jpg(array = image, path = out_path)
 
         if out_dir:
             if not out_dir.is_dir():
